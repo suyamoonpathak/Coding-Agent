@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  execution:
+    build:
+      context: ./src/execution
+      dockerfile: Dockerfile
+    ports:
+      - "5000:5000"
+    container_name: model-execution-container
+
+  model:
+    build:
+      context: ./src/models
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    container_name: model-inference-container
