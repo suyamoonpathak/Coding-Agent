@@ -8,6 +8,8 @@ services:
     ports:
       - "5000:5000"
     container_name: model-execution-container
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
 
   model:
     build:

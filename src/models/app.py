@@ -18,7 +18,7 @@ class PromptRequest(BaseModel):
 
 @app.get("/")
 async def hello():
-    return {"message": "Hello, World!"}
+    return {"message": "Hello, 8000 World!"}
 
 @app.post("/generate_code/")
 async def generate_code(request: PromptRequest):
