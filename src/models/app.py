@@ -21,5 +21,4 @@ async def generate_code(prompt: str):
     outputs = model.generate(**inputs)
     code = tokenizer.decode(outputs[0], skip_special_tokens=True)
     return {"generated_code": code}
-    return {"generated_code": "hello world"} 
     
