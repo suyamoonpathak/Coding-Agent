@@ -3,73 +3,44 @@ info:
   title: Coding Agent Platform APIs
   version: 0.1.0
   description: |
-  license:
-    name: MIT
-    url: https://opensource.org/licenses/MIT
-servers:
-  - url: http://localhost:8000
-    description: model service (local)
-  - url: http://localhost:5000
-    description: execution gateway (local)
-  - url: http://localhost:5100
-    description: runner service (local)
-
-security: []
     Consolidated API specification for the Coding Agent platform.
-    This document aggregates three backend services:
+    Services:
       - Model service (LLM inference)
       - Execution gateway (user-facing run API)
       - Runner service (isolated container execution)
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
 
-    Note: When any endpoint is added/changed, update this file accordingly.
+servers:
+  - url: https://api.coding-agent.local
+    description: Default API endpoint
+  - url: http://localhost:{port}
+    description: Local development
+    variables:
+      port:
+        default: '8000'
+        enum: ['8000', '5000', '5100']
+
+# No auth required for these endpoints for now
+security: []
 
 tags:
+  - name: meta
+    description: Health, readiness, and metrics
   - name: model
     description: LLM inference endpoints
   - name: execution
     description: User-facing code execution gateway
   - name: runner
     description: Low-level code runner (ephemeral containers)
-  - name: meta
-    description: Health, readiness, and metrics
 
 paths:
-  /:
-    get:
-      tags: [model, execution]
-      summary: Root message
-      description: Simple ping endpoint for model or execution service
-      operationId: rootMessage
-      servers:
-        - url: http://localhost:8000
-          description: model service
-        - url: http://localhost:5000
-          description: execution gateway
-      responses:
-        '200':
-          description: Service greeting
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-        '4XX':
-          description: Client error
-
   /healthz:
     get:
       tags: [meta]
       summary: Liveness probe
       operationId: healthz
-      servers:
-        - url: http://localhost:8000
-          description: model service
-        - url: http://localhost:5000
-          description: execution gateway
-        - url: http://localhost:5100
-          description: runner service
       responses:
         '200':
           description: OK
@@ -80,23 +51,16 @@ paths:
                 properties:
                   ok:
                     type: boolean
-        '4XX':
-          description: Client error
+        '400':
+          description: Bad request
         '503':
-          description: Service unavailable (e.g., runner when Docker is down)
+          description: Service unavailable
 
   /readyz:
     get:
       tags: [meta]
       summary: Readiness probe
       operationId: readyz
-      servers:
-        - url: http://localhost:8000
-          description: model service
-        - url: http://localhost:5000
-          description: execution gateway
-        - url: http://localhost:5100
-          description: runner service
       responses:
         '200':
           description: Ready status
@@ -107,21 +71,14 @@ paths:
                 properties:
                   ready:
                     type: boolean
-        '4XX':
-          description: Client error
+        '400':
+          description: Bad request
 
   /metrics:
     get:
       tags: [meta]
       summary: Prometheus metrics
       operationId: metrics
-      servers:
-        - url: http://localhost:8000
-          description: model service
-        - url: http://localhost:5000
-          description: execution gateway
-        - url: http://localhost:5100
-          description: runner service
       responses:
         '200':
           description: Prometheus text format
@@ -129,17 +86,14 @@ paths:
             text/plain:
               schema:
                 type: string
-        '4XX':
-          description: Client error
+        '400':
+          description: Bad request
 
   /generate_code:
     post:
       tags: [model]
       summary: Generate code from a prompt
       operationId: generateCode
-      servers:
-        - url: http://localhost:8000
-          description: model service
       requestBody:
         required: true
         content:
@@ -153,8 +107,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/GenerateCodeResponse'
-        '4XX':
-          description: Client error
+        '400':
+          description: Bad request
 
   /generate_code_stream:
     post:
@@ -162,9 +116,6 @@ paths:
       summary: Generate code (streaming)
       description: Streams generated text tokens as they are produced
       operationId: generateCodeStream
-      servers:
-        - url: http://localhost:8000
-          description: model service
       requestBody:
         required: true
         content:
@@ -178,20 +129,14 @@ paths:
             text/plain:
               schema:
                 type: string
-              examples:
-                chunked:
-                  value: "partial token stream..."
-        '4XX':
-          description: Client error
+        '400':
+          description: Bad request
 
   /execute_code:
     post:
       tags: [execution]
       summary: Execute user code (gateway)
       operationId: executeCode
-      servers:
-        - url: http://localhost:5000
-          description: execution gateway
       requestBody:
         required: true
         content:
@@ -205,17 +150,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ExecuteResponse'
-        '4XX':
-          description: Client error
+        '400':
+          description: Bad request
 
   /execute_code_stream:
     post:
       tags: [execution]
       summary: Execute user code (streaming)
       operationId: executeCodeStream
-      servers:
-        - url: http://localhost:5000
-          description: execution gateway
       requestBody:
         required: true
         content:
@@ -229,17 +171,14 @@ paths:
             text/plain:
               schema:
                 type: string
-        '4XX':
-          description: Client error
+        '400':
+          description: Bad request
 
   /run:
     post:
       tags: [runner]
       summary: Execute code in an ephemeral container
       operationId: runnerRun
-      servers:
-        - url: http://localhost:5100
-          description: runner service
       requestBody:
         required: true
         content:
@@ -253,19 +192,16 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/RunnerResponse'
+        '400':
+          description: Bad request
         '500':
           description: Runner or Docker error
-        '4XX':
-          description: Client error
 
   /run_stream:
     post:
       tags: [runner]
       summary: Execute code in an ephemeral container (streaming)
       operationId: runnerRunStream
-      servers:
-        - url: http://localhost:5100
-          description: runner service
       requestBody:
         required: true
         content:
@@ -279,17 +215,11 @@ paths:
             text/plain:
               schema:
                 type: string
-        '4XX':
-          description: Client error
+        '400':
+          description: Bad request
 
 components:
   schemas:
-    ErrorResponse:
-      type: object
-      properties:
-        error:
-          type: string
-
     PromptRequest:
       type: object
       properties:
@@ -313,13 +243,16 @@ components:
           type: array
           items:
             type: string
+      required:
+        - prompt
 
     GenerateCodeResponse:
       type: object
       properties:
         generated_code:
           type: string
-      required: [generated_code]
+      required:
+        - generated_code
 
     CodeRequest:
       type: object
@@ -345,7 +278,8 @@ components:
           minimum: 100
           maximum: 2000
           default: 500
-      required: [code]
+      required:
+        - code
 
     ExecuteResponse:
       type: object
@@ -381,7 +315,8 @@ components:
           minimum: 100
           maximum: 2000
           default: 500
-      required: [code]
+      required:
+        - code
 
     RunnerResponse:
       type: object
