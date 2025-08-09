@@ -63,7 +63,7 @@ jobs:
           node-version: '20'
       - name: Lint OpenAPI with Spectral
         run: |
-          npx --yes @stoplight/spectral-cli@6 lint openapi.yaml
+          npx --yes @stoplight/spectral-cli@6 lint openapi.yaml -r .spectral.yaml
       - name: Build Redoc static docs
         run: |
           npx --yes @redocly/cli@1.28.2 build-docs openapi.yaml -o site/index.html

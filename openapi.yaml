@@ -133,12 +133,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/GenerateCodeResponse'
-        '200_error':
-          description: Model not ready (compat)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
 
   /generate_code_stream:
     post:
