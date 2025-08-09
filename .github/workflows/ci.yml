@@ -61,9 +61,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - name: Lint OpenAPI with Spectral
+      - name: Lint OpenAPI with Redocly
         run: |
-          npx --yes @stoplight/spectral-cli@6 lint openapi.yaml -r .spectral.yaml
+          npx --yes @redocly/cli@1.28.2 lint openapi.yaml
       - name: Build Redoc static docs
         run: |
           npx --yes @redocly/cli@1.28.2 build-docs openapi.yaml -o site/index.html
