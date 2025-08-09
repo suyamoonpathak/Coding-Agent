@@ -3,6 +3,18 @@ info:
   title: Coding Agent Platform APIs
   version: 0.1.0
   description: |
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+servers:
+  - url: http://localhost:8000
+    description: model service (local)
+  - url: http://localhost:5000
+    description: execution gateway (local)
+  - url: http://localhost:5100
+    description: runner service (local)
+
+security: []
     Consolidated API specification for the Coding Agent platform.
     This document aggregates three backend services:
       - Model service (LLM inference)
@@ -43,6 +55,8 @@ paths:
                 properties:
                   message:
                     type: string
+        '4XX':
+          description: Client error
 
   /healthz:
     get:
@@ -66,6 +80,8 @@ paths:
                 properties:
                   ok:
                     type: boolean
+        '4XX':
+          description: Client error
         '503':
           description: Service unavailable (e.g., runner when Docker is down)
 
@@ -91,6 +107,8 @@ paths:
                 properties:
                   ready:
                     type: boolean
+        '4XX':
+          description: Client error
 
   /metrics:
     get:
@@ -111,8 +129,10 @@ paths:
             text/plain:
               schema:
                 type: string
+        '4XX':
+          description: Client error
 
-  /generate_code/:
+  /generate_code:
     post:
       tags: [model]
       summary: Generate code from a prompt
@@ -133,6 +153,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/GenerateCodeResponse'
+        '4XX':
+          description: Client error
 
   /generate_code_stream:
     post:
@@ -159,8 +181,10 @@ paths:
               examples:
                 chunked:
                   value: "partial token stream..."
+        '4XX':
+          description: Client error
 
-  /execute_code/:
+  /execute_code:
     post:
       tags: [execution]
       summary: Execute user code (gateway)
@@ -181,8 +205,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ExecuteResponse'
+        '4XX':
+          description: Client error
 
-  /execute_code_stream/:
+  /execute_code_stream:
     post:
       tags: [execution]
       summary: Execute user code (streaming)
@@ -203,6 +229,8 @@ paths:
             text/plain:
               schema:
                 type: string
+        '4XX':
+          description: Client error
 
   /run:
     post:
@@ -227,6 +255,8 @@ paths:
                 $ref: '#/components/schemas/RunnerResponse'
         '500':
           description: Runner or Docker error
+        '4XX':
+          description: Client error
 
   /run_stream:
     post:
@@ -249,6 +279,8 @@ paths:
             text/plain:
               schema:
                 type: string
+        '4XX':
+          description: Client error
 
 components:
   schemas:
