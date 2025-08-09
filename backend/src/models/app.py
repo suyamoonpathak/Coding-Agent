@@ -1,17 +1,9 @@
 import logging
-import threading
-import time
-from typing import Optional
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
-from transformers import (
-    AutoModelForCausalLM,
-    AutoTokenizer,
-    TextIteratorStreamer,
-)
+from schemas import PromptRequest
+from service import ModelService
 
 
 logger = logging.getLogger("model-service")
@@ -35,44 +27,12 @@ app.add_middleware(
 )
 
 
-# Global lazy state
-cache_dir = "./model_cache"
-model_name = "Qwen/Qwen2.5-Coder-1.5B"
-tokenizer = None
-model = None
-model_ready = False
-
-
-def _load_model_blocking() -> None:
-    global tokenizer, model, model_ready
-    try:
-        start = time.time()
-        logger.info("Loading tokenizer %s", model_name)
-        tokenizer = AutoTokenizer.from_pretrained(model_name, cache_dir=cache_dir)
-        logger.info("Loading model %s", model_name)
-        model = AutoModelForCausalLM.from_pretrained(model_name, cache_dir=cache_dir)
-        model.to("cpu")
-        model.eval()
-        model_ready = True
-        logger.info("Model loaded in %.2fs", time.time() - start)
-    except Exception as exc:
-        logger.exception("Failed to load model: %s", exc)
-        model_ready = False
+service = ModelService(model_name="Qwen/Qwen2.5-Coder-0.5B-Instruct")
 
 
 @app.on_event("startup")
 async def startup_load():
-    # Lazy background load so healthz is fast and readyz flips when done
-    thread = threading.Thread(target=_load_model_blocking, daemon=True)
-    thread.start()
-
-# Pydantic model to handle the input body
-class PromptRequest(BaseModel):
-    prompt: str
-    max_new_tokens: int = 256
-    temperature: float = 0.2
-    top_p: float = 0.95
-    stop: Optional[list[str]] = None
+    service.start_background_load()
 
 @app.get("/")
 async def root():
@@ -86,7 +46,7 @@ async def healthz():
 
 @app.get("/readyz")
 async def readyz():
-    return {"ready": bool(model_ready)}
+    return {"ready": bool(service.ready)}
 
 
 @app.get("/metrics")
@@ -95,49 +55,37 @@ async def metrics():
     lines = [
         "# HELP model_ready 1 if model is loaded",
         "# TYPE model_ready gauge",
-        f"model_ready {{}} {1 if model_ready else 0}",
+        f"model_ready {{}} {1 if service.ready else 0}",
     ]
     return "\n".join(lines) + "\n"
 
 @app.post("/generate_code/")
 async def generate_code(request: PromptRequest):
-    if not model_ready:
+    if not service.ready:
         return {"error": "model not ready"}
-
-    inputs = tokenizer(request.prompt, return_tensors="pt")
-    outputs = model.generate(
-        input_ids=inputs["input_ids"],
+    prompt_text = service.build_prompt(request.prompt, request.system_prompt)
+    generated_text = service.generate(
+        prompt_text,
         max_new_tokens=min(max(1, request.max_new_tokens), 1024),
-        do_sample=True,
         temperature=max(0.0, request.temperature),
         top_p=min(max(0.0, request.top_p), 1.0),
     )
-    generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
     return {"generated_code": generated_text}
 
 
 @app.post("/generate_code_stream")
 async def generate_code_stream(request: PromptRequest):
-    if not model_ready:
+    if not service.ready:
         return {"error": "model not ready"}
 
     def token_stream():
-        streamer = TextIteratorStreamer(tokenizer, skip_prompt=True, skip_special_tokens=True)
-        inputs = tokenizer(request.prompt, return_tensors="pt")
-
-        generation_kwargs = dict(
-            input_ids=inputs["input_ids"],
+        prompt_text = service.build_prompt(request.prompt, request.system_prompt)
+        for chunk in service.stream(
+            prompt_text,
             max_new_tokens=min(max(1, request.max_new_tokens), 1024),
-            do_sample=True,
             temperature=max(0.0, request.temperature),
             top_p=min(max(0.0, request.top_p), 1.0),
-            streamer=streamer,
-        )
-
-        thread = threading.Thread(target=model.generate, kwargs=generation_kwargs)
-        thread.start()
-
-        for new_text in streamer:
-            yield new_text
+        ):
+            yield chunk
 
     return StreamingResponse(token_stream(), media_type="text/plain")

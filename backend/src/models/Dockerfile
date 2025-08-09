@@ -21,6 +21,8 @@ WORKDIR /app
 
 # Copy all files in the current src/models directory into the container /app directory
 COPY . .
+# Ensure Python sees this directory as a package root for absolute imports
+ENV PYTHONPATH=/app
 
 # Expose the port for FastAPI communication
 EXPOSE 8000

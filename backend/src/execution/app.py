@@ -6,7 +6,7 @@ import httpx
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from schemas import CodeRequest
 
 
 logger = logging.getLogger("execution-service")
@@ -30,12 +30,9 @@ app.add_middleware(
 )
 
 
-class CodeRequest(BaseModel):
-    code: str
-    language: str = "python"
-    timeout_seconds: int = 10
-    memory_mb: int = 256
-    cpu_millis: int = 500  # 0.5 CPU
+"""
+Request/response models are defined in schemas.py to keep this file small.
+"""
 
 
 @app.get("/")
