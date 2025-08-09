@@ -8,6 +8,9 @@ function App() {
   const [output, setOutput] = useState('');
   const [loading, setLoading] = useState(false);
   const [feedback, setFeedback] = useState('');
+  const [stream, setStream] = useState(false);
+  const modelBase = process.env.REACT_APP_MODEL_BASE_URL || 'http://localhost:8000';
+  const execBase = process.env.REACT_APP_EXEC_BASE_URL || 'http://localhost:5000';
 
   // Handle toggle change between code generation and execution
   const handleToggle = (e) => {
@@ -25,23 +28,50 @@ function App() {
     setFeedback(e.target.value);
   };
 
+  const readStream = async (response) => {
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder('utf-8');
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const chunk = decoder.decode(value, { stream: true });
+      setOutput((prev) => prev + chunk);
+    }
+  };
+
   // Send request to backend based on mode
   const handleSubmit = async () => {
     setLoading(true);
+    setOutput('');
     try {
-      let response;
       if (mode === 'generate') {
-        // For code generation
-        response = await axios.post('http://localhost:8000/generate_code/', {
-          prompt: input,
-        });
+        if (stream) {
+          const resp = await fetch(modelBase + '/generate_code_stream', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt: input })
+          });
+          if (!resp.ok) throw new Error('Stream failed');
+          await readStream(resp);
+        } else {
+          const response = await axios.post(modelBase + '/generate_code/', { prompt: input });
+          setOutput(response.data.generated_code || '');
+        }
       } else {
-        // For code execution
-        response = await axios.post('http://localhost:5000/execute_code/', {
-          code: input,
-        });
+        if (stream) {
+          const resp = await fetch(execBase + '/execute_code_stream/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code: input })
+          });
+          if (!resp.ok) throw new Error('Exec stream failed');
+          await readStream(resp);
+        } else {
+          const response = await axios.post(execBase + '/execute_code/', { code: input });
+          const { logs, exit_code } = response.data;
+          setOutput((logs || '') + (typeof exit_code !== 'undefined' ? `\nExit code: ${exit_code}` : ''));
+        }
       }
-      setOutput(response.data.generated_code || response.data.output);
     } catch (error) {
       setOutput('Error: ' + error.message);
     }
@@ -66,6 +96,13 @@ function App() {
           className={mode === 'execute' ? 'active' : ''}>
           Code Execution
         </button>
+      </div>
+
+      {/* Stream toggle */}
+      <div style={{ marginTop: 8 }}>
+        <label>
+          <input type="checkbox" checked={stream} onChange={(e) => setStream(e.target.checked)} /> Stream
+        </label>
       </div>
 
       {/* Input area */}

@@ -1,18 +1,31 @@
 import argparse
+import os
+import sys
 import requests
 
-# Define the API URL for executing code
-API_URL = "http://localhost:5000/execute_code/"
 
-def execute_code_cli(code: str):
-    """Executes code via the FastAPI endpoint."""
-    payload = {"code": code}
-    
+def execute_code_cli(base_url: str, code: str, stream: bool) -> None:
+    if stream:
+        url = base_url.rstrip("/") + "/execute_code_stream/"
+        resp = requests.post(url, json={"code": code}, stream=True)
+        resp.raise_for_status()
+        for chunk in resp.iter_content(chunk_size=None):
+            if chunk:
+                sys.stdout.write(chunk.decode("utf-8", errors="ignore"))
+                sys.stdout.flush()
+        return
+
+    url = base_url.rstrip("/") + "/execute_code/"
     try:
-        response = requests.post(API_URL, json=payload)
-        response.raise_for_status()  # Raise an error for 4xx/5xx responses
+        response = requests.post(url, json={"code": code})
+        response.raise_for_status()
         result = response.json()
-        print(f"{result['output']}")
+        logs = result.get("logs", "")
+        exit_code = result.get("exit_code")
+        if logs:
+            print(logs, end="")
+        if exit_code is not None:
+            print(f"\nExit code: {exit_code}")
     except requests.exceptions.RequestException as e:
         print(f"Error: {e}")
 
@@ -31,19 +44,17 @@ def collect_feedback():
 
 def main():
     parser = argparse.ArgumentParser(description="Autonomous Coding Agent")
-    
-    # Add commands for code execution and feedback collection
-    parser.add_argument("command", help="The command to execute (e.g., execute_code, feedback)")
-    parser.add_argument("--code", help="The code to execute (use with 'execute_code')", default="")
-    
+    parser.add_argument("command", help="execute_code or feedback")
+    parser.add_argument("--code", help="Code to execute (use with 'execute_code')", default="")
+    parser.add_argument("--base-url", help="Execution API base URL", default=os.environ.get("EXEC_BASE_URL", "http://localhost:5000"))
+    parser.add_argument("--stream", help="Stream output from server", action="store_true")
     args = parser.parse_args()
 
     if args.command == "execute_code":
         if args.code:
-            execute_code_cli(args.code)
+            execute_code_cli(args.base_url, args.code, args.stream)
         else:
             print("Please provide the code to execute using --code")
-
     elif args.command == "feedback":
         collect_feedback()
     else:

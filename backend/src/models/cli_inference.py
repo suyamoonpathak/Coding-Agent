@@ -1,20 +1,30 @@
 import argparse
+import os
+import sys
 import requests
 
-# Define the API URL for generating code
-API_URL = "http://localhost:8000/generate_code/"
 
-def generate_code_cli(prompt: str):
-    """Generates code from the FastAPI server."""
-    payload = {"prompt": prompt}
+def stream_generate(url: str, prompt: str) -> None:
+    resp = requests.post(url, json={"prompt": prompt}, stream=True)
+    resp.raise_for_status()
+    for chunk in resp.iter_content(chunk_size=None):
+        if chunk:
+            sys.stdout.write(chunk.decode("utf-8", errors="ignore"))
+            sys.stdout.flush()
 
+
+def generate_code_cli(base_url: str, prompt: str, stream: bool) -> None:
+    if stream:
+        stream_url = base_url.rstrip("/") + "/generate_code_stream"
+        stream_generate(stream_url, prompt)
+        return
+
+    url = base_url.rstrip("/") + "/generate_code/"
     try:
-        # Send POST request to the FastAPI server to generate code
-        response = requests.post(API_URL, json=payload)
-        response.raise_for_status()  # Raise an error for non-2xx responses
+        response = requests.post(url, json={"prompt": prompt})
+        response.raise_for_status()
         result = response.json()
-        generated_code = result.get("generated_code", "")
-        print(generated_code)
+        print(result.get("generated_code", ""))
     except requests.exceptions.RequestException as e:
         print(f"Error: {e}")
 
@@ -33,19 +43,17 @@ def collect_feedback():
 
 def main():
     parser = argparse.ArgumentParser(description="Autonomous Coding Agent (Inference)")
-    
-    # Add arguments for generating code and feedback
-    parser.add_argument("command", help="The command to execute (e.g., generate_code, feedback)")
-    parser.add_argument("--prompt", help="The prompt to generate code (use with 'generate_code')", default="")
-    
+    parser.add_argument("command", help="generate_code or feedback")
+    parser.add_argument("--prompt", help="Prompt to generate code", default="")
+    parser.add_argument("--base-url", help="Model service base URL", default=os.environ.get("MODEL_BASE_URL", "http://localhost:8000"))
+    parser.add_argument("--stream", help="Stream tokens from server", action="store_true")
     args = parser.parse_args()
 
     if args.command == "generate_code":
-        if args.prompt:
-            generate_code_cli(args.prompt)
-        else:
+        if not args.prompt:
             print("Please provide a prompt using --prompt")
-
+            return
+        generate_code_cli(args.base_url, args.prompt, args.stream)
     elif args.command == "feedback":
         collect_feedback()
     else:

@@ -1,5 +1,5 @@
 # Step 1: Build the app
-FROM node:16-slim AS build
+FROM node:18-alpine AS build
 
 # Set working directory
 WORKDIR /app
@@ -9,6 +9,10 @@ COPY package.json package-lock.json ./
 
 # Install dependencies
 RUN npm install
+ARG REACT_APP_MODEL_BASE_URL
+ARG REACT_APP_EXEC_BASE_URL
+ENV REACT_APP_MODEL_BASE_URL=$REACT_APP_MODEL_BASE_URL
+ENV REACT_APP_EXEC_BASE_URL=$REACT_APP_EXEC_BASE_URL
 
 # Copy the rest of the application
 COPY . .
