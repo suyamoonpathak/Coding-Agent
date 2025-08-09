@@ -1,7 +1,6 @@
 extends: spectral:oas
 rules:
   info-contact: off
-  license-ibm: off
   operation-2xx-response: warn
   operation-operationId-unique: error
   operation-operationId: warn
