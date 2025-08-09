@@ -1,20 +1,37 @@
-version: '3.8'
-
 services:
   execution:
     build:
-      context: ./src/execution
+      context: ./backend/src/execution
       dockerfile: Dockerfile
     ports:
       - "5000:5000"
     container_name: model-execution-container
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - backend-network
+    
 
   model:
     build:
-      context: ./src/models
+      context: ./backend/src/models
       dockerfile: Dockerfile
     ports:
       - "8000:8000"
     container_name: model-inference-container
+    networks:
+      - backend-network
+
+  frontend:
+    build:
+      context: ./frontend/coding-agent-frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+    container_name: react-frontend-container
+    networks:
+      - backend-network
+
+networks:
+  backend-network:
+    driver: bridge
